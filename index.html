@@ -109,7 +109,7 @@
         <div id="list-container">
             <div id="list"></div>
             <div id="big-mystery-area"></div>
-            <button class="btn-debug" onclick="resetAllData()">⚙️ データを初期化して最初から解く</button>
+            <button class="btn-debug" onclick="resetAllData('本番')">⚙️ データを初期化して最初から解く</button>
         </div>
     </div>
 
@@ -158,7 +158,10 @@
 
         <p id="final-note-display" style="padding:15px; line-height:1.8; color: #cdd6f4; text-align: left; background: #1e1e2e; border-radius: 12px; margin: 10px 20px; width: calc(100% - 40px); max-width: 450px; font-size:14px;"></p>
         
-        <button class="btn-main" style="max-width:200px; margin-top: 15px; background:#45475a; box-shadow:none;" onclick="resetAllData()">最初からやり直す</button>
+        <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:200px; margin-top:15px;">
+            <button class="btn-main" style="background:#3b82f6; box-shadow:none;" onclick="goToTitleWithoutReset()">🏠 タイトルに戻る</button>
+            <button class="btn-main" style="background:#45475a; box-shadow:none; font-size:14px;" onclick="resetAllData('本番')">🔄 最初からやり直す</button>
+        </div>
     </div>
 </div>
 
@@ -172,11 +175,8 @@
     let bigPuzzleId = null;
     let mapImgName = ""; 
 
-    // タイマー関連の変数
     let startTime = localStorage.getItem('escape_start_time') ? parseInt(localStorage.getItem('escape_start_time')) : null;
     let timerInterval = null;
-
-    // スプレッドシートから読み込む景品設定用変数
     let prizeConfig = { time_s: 10, msg_s: "", time_a: 20, msg_a: "", msg_b: "", final_clear_img: "" };
 
     function startGlSequence() {
@@ -201,14 +201,12 @@
             document.getElementById('real-title-area').style.display = 'block';
             titleScreen.scrollTop = 0;
 
-            // 不正防止：すでに開始時間が記録されていたら強制的にメイン画面へ
             if (startTime) {
                 startTrackingTime();
             }
         }, 1500);
     }
 
-    // タイム計測スタート（不正防止機能つき）
     function startTrackingTime() {
         if (!startTime) {
             startTime = Date.now();
@@ -257,11 +255,8 @@
                 
                 const rowId = c[getCol('id')] || "";
                 
-                // タイトル行から各種設定を読み込む
                 if (rowId === 'title') {
                     mapImgName = c[getCol('q_img')] || "";
-                    
-                    // スプレッドシートから景品設定を動的に取得（空ならデフォルト値）
                     prizeConfig.time_s = parseFloat(c[getCol('time_s')]) || 10;
                     prizeConfig.msg_s = c[getCol('msg_s')] || "🏆 【Sランク】おめでとうございます！";
                     prizeConfig.time_a = parseFloat(c[getCol('time_a')]) || 20;
@@ -295,7 +290,6 @@
                 mapContainer.innerHTML = `<p style="color:#bababc; font-size:14px; margin:20px 0;">⚠️ マップ画像が登録されていません。</p>`;
             }
 
-            // 途中から開いた場合もすでに開始していればタイマーを動かす
             if (startTime && localStorage.getItem('escape_start_time')) {
                 if (!timerInterval) timerInterval = setInterval(updateTimer, 1000);
             }
@@ -334,14 +328,14 @@
             bigArea.appendChild(bBtn);
         }
 
-        // 不正防止：もし大謎がクリア済みなら強制的に成功画面を保つ
         if (big && clearedIds.includes(big.id)) {
             triggerEscapeSuccess();
         }
     }
 
+    // 本番用の文面に修正したリセット関数
     function resetAllData() {
-        if(confirm("クリア状況と計測時間をリセットして、最初からテストプレイしますか？")) {
+        if(confirm("プレイデータを消去して、新しくゲームを始めますか？")) {
             localStorage.removeItem('ivy_cleared');
             localStorage.removeItem('escape_start_time');
             clearedIds = [];
@@ -349,6 +343,17 @@
             if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
             location.reload();
         }
+    }
+
+    // リセットせずにタイトルに戻る機能
+    function goToTitleWithoutReset() {
+        // メイン画面の演出などを初期状態に戻すための処理
+        if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        document.getElementById('fake-title-area').style.display = 'block';
+        document.getElementById('real-title-area').style.display = 'none';
+        const titleScreen = document.getElementById('screen-title');
+        titleScreen.style.background = 'linear-gradient(135deg, #1e3a8a, #3b82f6)';
+        changeScreen('screen-title');
     }
 
     function openMapModal() {
@@ -437,35 +442,29 @@
         }
     }
 
-    // 最終クリア演出と景品ランク判定
     function triggerEscapeSuccess() {
         if(timerInterval) { clearInterval(timerInterval); timerInterval = null; }
         
-        // タイム計算
         const diffMs = Date.now() - (startTime || Date.now());
-        const totalMinutes = diffMs / 1000 / 60; // 分単位（小数含む）
+        const totalMinutes = diffMs / 1000 / 60; 
         
         const diffSec = Math.floor(diffMs / 1000);
         const finalMins = Math.floor(diffSec / 60);
         const finalSecs = diffSec % 60;
         document.getElementById('final-time-badge').innerText = `⏱️ クリアタイム: ${finalMins}分${finalSecs}秒`;
 
-        // 景品ランク判定ロジック
         const prizeBox = document.getElementById('prize-rank-box');
         if (totalMinutes <= prizeConfig.time_s) {
-            // Sランク
             prizeBox.innerText = prizeConfig.msg_s;
-            prizeBox.style.background = "linear-gradient(135deg, #facc15, #f59e0b)"; // 金
+            prizeBox.style.background = "linear-gradient(135deg, #facc15, #f59e0b)"; 
             prizeBox.style.color = "#111";
         } else if (totalMinutes <= prizeConfig.time_a) {
-            // Aランク
             prizeBox.innerText = prizeConfig.msg_a;
-            prizeBox.style.background = "linear-gradient(135deg, #e2e8f0, #94a3b8)"; // 銀
+            prizeBox.style.background = "linear-gradient(135deg, #e2e8f0, #94a3b8)"; 
             prizeBox.style.color = "#111";
         } else {
-            // Bランク
             prizeBox.innerText = prizeConfig.msg_b;
-            prizeBox.style.background = "linear-gradient(135deg, #b4b4b4, #475569)"; // 銅・通常
+            prizeBox.style.background = "linear-gradient(135deg, #b4b4b4, #475569)"; 
             prizeBox.style.color = "#fff";
         }
 
@@ -473,7 +472,6 @@
         if(bigPuzzle) {
             document.getElementById('final-note-display').innerText = bigPuzzle.story;
             
-            // 最終クリア画面の画像をスプレッドシートから優先読み込み
             const fImg = document.getElementById('final-img');
             const fPath = getImgPath(prizeConfig.final_clear_img || bigPuzzle.clear_img);
             if (fPath) { fImg.src = fPath; fImg.style.display = 'block'; } else { fImg.style.display = 'none'; }
